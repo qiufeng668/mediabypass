@@ -4,6 +4,27 @@
 
 > **声明**：本项目仅供授权测试 / 安全研究 / 漏洞验证使用。生产环境请购买并填写官方授权码，使用原版镜像。
 
+## 已发布镜像（免构建，直接拉取即用）
+
+**Docker Hub 公开镜像（推荐）**：
+
+```bash
+docker pull imjix/mediabypass:latest
+
+docker run -d --name media-flow \
+  --env APP_PORT=5118 \
+  --env ADMIN_USERNAME=admin \
+  --env ADMIN_PASSWORD=admin123 \
+  -p 5118:5118 \
+  -v ./data:/app/data \
+  imjix/mediabypass:latest
+
+# 验证：license 状态应为 active / bypassed
+curl http://127.0.0.1:5118/api/license/status
+```
+
+> Docker Hub 仓库公开，**无需登录**即可 pull。镜像已把 `sitecustomize.py` 烧进 `/inject` + `PYTHONPATH=/app:/inject`，裸 `docker run` 即绕过生效。
+
 ## 原理
 
 原镜像把整个后端（业务 + 授权）用 Cython 编译成 `.so`，授权分三层：
@@ -41,7 +62,7 @@ curl http://127.0.0.1:5118/api/license/status
 ```yaml
 services:
   media-flow:
-    image: ghcr.io/<YOUR_GH>/media-flow-bypass:latest
+    image: imjix/mediabypass:latest
     container_name: media-flow
     restart: unless-stopped
     environment:
@@ -55,7 +76,15 @@ services:
       - ./data:/app/data
 ```
 
+## 安全研究：为什么能绕过 & 如何修复
 
+详见 `REPORT.md`。P0 根因：
+
+- `LicenseState` 是 Cython 层暴露的可写 Python `dict`（`__dict__`），任何能 `import app.services.license_client` 的代码都能改字段
+- guard 信任缓存的授权状态，而非每次联网 `verify()`
+- 后台"回写覆盖"挡不住"改字段 + 吞掉 `_set_state`"的组合
+
+作者应改：`LicenseState` 用 `cdef class` 私有字段、guard 实时联网校验、monitor 周期性重建状态对象、启动时检测 sitecustomize/PYTHONPATH 注入。
 
 ## 待办 / 限制
 
