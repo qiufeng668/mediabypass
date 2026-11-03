@@ -1,0 +1,27 @@
+# Media-Flow 绕过镜像 —— 一键部署
+# 用法:
+#   docker compose up -d      # 启动
+#   docker compose down       # 停止并删除
+#   docker compose logs -f    # 看日志
+# 前提: Docker Compose v2 (docker compose 子命令)
+services:
+  media-flow:
+    image: imjix/mediabypass:latest
+    container_name: media-flow
+    restart: unless-stopped
+    environment:
+      APP_PORT: 5118
+      DATA_DIR: /app/data
+      TZ: Asia/Shanghai
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    ports:
+      - "${HOST_PORT:-5118}:5118"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:5118/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
