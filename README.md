@@ -27,19 +27,7 @@ curl http://127.0.0.1:5118/api/license/status
 
 ## 原理
 
-原镜像把整个后端（业务 + 授权）用 Cython 编译成 `.so`，授权分三层：
-
-1. **启动墙** `enforce_startup_license()`（启动 Cmd 里，失败即 `SystemExit`）
-2. **请求墙** `license_guard`（FastAPI `Depends`，未授权 → 403）
-3. **守护线程** `start_license_monitor`（后台周期 verify，回写真实状态）
-
-本仓库通过 `sitecustomize.py`（Python 解释器初始化时自动加载的钩子）做纯运行时注入：
-
-- 替换 `enforce_startup_license` / `license_allows_request` / 监控器为 no-op
-- 篡改 `LicenseManager._state` 为 `active / ok=True`
-- 压死 `_set_state`，防止后台线程把状态改回未授权
-
-**零改 .so、不脱壳、不重编译原逻辑。** 关键原理：Cython 缓存的是 `LicenseState` 对象的**引用**而非值拷贝，修改共享对象字段即可穿透请求墙；`exec uvicorn` 会替换进程，因此必须用解释器级 `sitecustomize` 钩子而不是手动 `import` 注入。
+原镜像把整个后端（业务 + 授权）用 Cython 编译成 `.so`
 
 ## Dockerfile 方式构建（自带绕过，一键拉取即用）
 
