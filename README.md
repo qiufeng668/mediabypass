@@ -55,15 +55,7 @@ services:
       - ./data:/app/data
 ```
 
-## 安全研究：为什么能绕过 & 如何修复
 
-详见 `REPORT.md`。P0 根因：
-
-- `LicenseState` 是 Cython 层暴露的可写 Python `dict`（`__dict__`），任何能 `import app.services.license_client` 的代码都能改字段
-- guard 信任缓存的授权状态，而非每次联网 `verify()`
-- 后台"回写覆盖"挡不住"改字段 + 吞掉 `_set_state`"的组合
-
-作者应改：`LicenseState` 用 `cdef class` 私有字段、guard 实时联网校验、monitor 周期性重建状态对象、启动时检测 sitecustomize/PYTHONPATH 注入。
 
 ## 待办 / 限制
 
